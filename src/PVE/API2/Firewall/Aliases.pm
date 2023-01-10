@@ -15,15 +15,28 @@ my $api_properties = {
 	type => 'string', format => 'IPorCIDR',
     },
     name => get_standard_option('pve-fw-alias'),
-    rename => get_standard_option('pve-fw-alias', {
-	description => "Rename an existing alias.",
-	optional => 1,
-    }),
+    ipversion => {
+	description => "IP Version of cidr value (4 or 6)."
+	type => 'integer',
+    },
     comment => {
 	type => 'string',
 	optional => 1,
     },
+    rename => get_standard_option('pve-fw-alias', {
+	description => "Rename an existing alias.",
+	optional => 1,
+    }),
 };
+
+sub alias_properties {
+    return {
+	cidr => $api_properties->{cidr},
+	name => $api_properties->{naem},
+	ipversion => $api_properties->{ipversion},
+	comment => $api_properties->{comment},
+    }
+}
 
 sub lock_config {
     my ($class, $param, $code) = @_;
@@ -81,6 +94,9 @@ sub register_get_aliases {
     my ($class) = @_;
 
     my $properties = $class->additional_parameters();
+    my $alias_response = alias_properties();
+
+    $alias_response->{digest} = get_standard_option('pve-config-digest', { optional => 0} );
 
     $class->register_method({
 	name => 'get_aliases',
@@ -96,15 +112,7 @@ sub register_get_aliases {
 	    type => 'array',
 	    items => {
 		type => "object",
-		properties => {
-		    name => { type => 'string' },
-		    cidr => { type => 'string' },
-		    comment => {
-			type => 'string',
-			optional => 1,
-		    },
-		    digest => get_standard_option('pve-config-digest', { optional => 0} ),
-		},
+		properties => $alias_response,
 	    },
 	    links => [ { rel => 'child', href => "{name}" } ],
 	},
@@ -169,6 +177,7 @@ sub register_read_alias {
     my ($class) = @_;
 
     my $properties = $class->additional_parameters();
+    my $alias_response = alias_properties();
 
     $properties->{name} = $api_properties->{name};
 
@@ -182,7 +191,10 @@ sub register_read_alias {
 	    additionalProperties => 0,
 	    properties => $properties,
 	},
-	returns => { type => "object" },
+	returns => {
+	    type => "object",
+	    properties => $alias_response,
+	},
 	code => sub {
 	    my ($param) = @_;
 
